@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import matplotlib.colors as colors
-from matplotlib.ticker import LogFormatterExponent 
+from matplotlib.ticker import LogFormatterExponent
 from matplotlib.ticker import LogFormatterSciNotation
 import Parsivel_Utilities as pu
 
@@ -19,9 +19,10 @@ def set_plot_fontsizes(SMALL, MEDIUM, LARGE):
     return
 
 #############################################################################################
-def plot_error(error_text, plot_type, Out_Base_Dir, site, inst, syear, smonth, sday):
+def plot_error(error_text, plot_type, Out_Base_Dir, site, inst, syear, smonth, sday,
+               savefig=True):
     """
-    	Code to plot a blank image with an error_text annotation
+        Code to plot a blank image with an error_text annotation
         plot_type = 'Rain' or 'DSD'
     """
     fig = plt.figure(figsize=(10,5), facecolor='white')
@@ -34,18 +35,23 @@ def plot_error(error_text, plot_type, Out_Base_Dir, site, inst, syear, smonth, s
     ax.annotate(error_text, (0.5, 0.5), horizontalalignment='center', color='red', fontsize=24)
 
     # Save the plot
-    if( (plot_type != 'Rain') & (plot_type != 'DSD')): 
+    if( (plot_type != 'Rain') & (plot_type != 'DSD')):
         return
-        
+
     title = site + '/' + inst + ' ' + smonth + '/' + sday + '/' + syear
     plt.suptitle(title, fontsize=30)
-    png_dir = Out_Base_Dir + '/Plots/' + inst + '/' + plot_type + '/' + syear + '/'
-    os.makedirs(png_dir, exist_ok=True)
 
-    sdate = syear + '_' + smonth + sday
-    png_file = png_dir + site + '_' + inst + '_' + sdate + '_' + plot_type.lower() + '.png'
-    plt.savefig(png_file)
-    print('    --> ERROR: ' + png_file)
+    if(savefig):
+        png_dir = Out_Base_Dir + '/Plots/' + inst + '/' + plot_type + '/' + syear + '/'
+        os.makedirs(png_dir, exist_ok=True)
+
+        sdate = syear + '_' + smonth + sday
+        png_file = png_dir + site + '_' + inst + '_' + sdate + '_' + plot_type.lower() + '.png'
+        plt.savefig(png_file)
+        print('    --> ERROR: ' + png_file)
+        plt.close()
+    else:
+        plt.show()
 
     return
 
@@ -60,7 +66,8 @@ def create_thumbnail(png_file, size_tuple):
         pass
     return thumb_file
 #############################################################################################
-def plot_dsd(Parms_DF, PSD_DF, Out_Base_Dir, site, instrument, syear, smonth, sday):
+def plot_dsd(Parms_DF, PSD_DF, Out_Base_Dir, site, instrument, syear, smonth, sday,
+             savefig=True):
 
     color = 'black'
     levels = np.logspace(-4, 4, base=10, num=17)
@@ -77,10 +84,10 @@ def plot_dsd(Parms_DF, PSD_DF, Out_Base_Dir, site, instrument, syear, smonth, sd
 
     cb = plt.colorbar(cf, ax=ax0, location='bottom', fraction=0.125, ticks=cb_levels,
                       label='Drops per ($m^{3}$/mm)', pad=0.175, aspect=40)
-                      
+
     cb.formatter = LogFormatterSciNotation(base=10)
-    cb.update_ticks()                      
-                 
+    cb.update_ticks()
+
     plt.xticks(rotation=45)
     plt.grid(True)
 
@@ -88,25 +95,24 @@ def plot_dsd(Parms_DF, PSD_DF, Out_Base_Dir, site, instrument, syear, smonth, sd
     plt.suptitle(title, fontsize=30, y=0.93)
     plt.tight_layout()
 
-    # Save the plot
-    png_dir = Out_Base_Dir + '/Plots/' + instrument + '/DSD/' + syear + '/'
-    print('PNG_DIR: ', png_dir)
-    
-    os.makedirs(png_dir, exist_ok=True)
-
-    dsd_file = png_dir + site + '_' + instrument + '_' + syear + '_' + smonth + sday + '_dsd.png'
-    plt.savefig(dsd_file, bbox_inches='tight')
-    print('    --> ' + dsd_file)
-
-    plt.close()
+    dsd_dir = Out_Base_Dir + '/Plots/' + instrument + '/DSD/' + syear + '/'
+    dsd_file = dsd_dir + site + '_' + instrument + '_' + syear + '_' + smonth + sday + '_dsd.png'
+    if(savefig):
+        print('PNG_DIR: ', png_dir)
+        os.makedirs(png_dir, exist_ok=True)
+        plt.savefig(dsd_file, bbox_inches='tight')
+        print('    --> ' + dsd_file)
+        plt.close()
+    else:
+        plt.show()
 
     return dsd_file
 #############################################################################################
 def plot_integral_parameters(Parms_DF, PSD_DF, Out_Base_Dir,
-                             site, instrument, syear, smonth, sday):
-
+                             site, instrument, syear, smonth, sday,
+                             figsize=(10,20), savefig=True):
     color = 'black'
-    fig = plt.figure(figsize=(10, 25), facecolor='white')
+    fig = plt.figure(figsize=figsize, facecolor='white')
 
     ax1 = fig.add_subplot(711)
     ax1.plot(Parms_DF.index, Parms_DF['Rain'].values, color=color, linewidth=1.0, label='Rain Rate')
@@ -155,15 +161,15 @@ def plot_integral_parameters(Parms_DF, PSD_DF, Out_Base_Dir,
     plt.suptitle(title, fontsize=30)
     plt.tight_layout()
 
-
-    # Save the plot
     png_dir = Out_Base_Dir + 'Plots/' + instrument + '/Rain/' + syear + '/'
-    os.makedirs(png_dir, exist_ok=True)
-
     png_file = png_dir + site + '_' + instrument + '_' + syear + '_' + smonth + sday + '_rain.png'
-    plt.savefig(png_file, bbox_inches='tight')
-    print('    --> ' + png_file)
-
-    plt.close()
+    if(savefig):
+        # Save the plot
+        os.makedirs(png_dir, exist_ok=True)
+        plt.savefig(png_file, bbox_inches='tight')
+        print('    --> ' + png_file)
+        plt.close()
+    else:
+        plt.show()
 
     return png_file

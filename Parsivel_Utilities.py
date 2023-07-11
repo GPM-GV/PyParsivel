@@ -58,7 +58,7 @@ def print_drop_matrix(data):
     x = data[:,:]
     for iv in range(32):
         line = x[iv,:].astype(int)
-        print(line)
+        #print(line)
     return
 #############################################################################################
 def get_julday_from_datetime(dt):
@@ -94,7 +94,7 @@ def concatenate_files(files):
 
     with open(in_file, 'w') as f:
         for fname in files:
-            print('Concat: ', fname)
+            #print('Concat: ', fname)
             with open(fname, encoding="ISO-8859-1") as fs:
                 for line in fs:
                     f.write(line)
@@ -193,7 +193,7 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
             dt   = delta[idiam]
 
             for ivel in range(nv):
-                print()
+                #print()
                 vel  = v_bin[ivel]
                 NumDrops = Drops[idiam, ivel]
 
