@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from zipfile import ZipFile
 import xarray as xr
 import time
-import pdb
 
 pd.set_option("display.max_columns", 1100)
 np.set_printoptions(linewidth=160)
@@ -22,7 +21,7 @@ def save_netcdf(DS_1min, site, instrument, syear, smonth, sday):
 
     It returns the path/name of the written NetCDF file
     '''
-    cdf_dir = Out_Base_Dir + instrument + '/NetCDF/' + syear + '/'
+    cdf_dir = Out_Base_Dir + '/NetCDF/' + syear + '/'
     os.makedirs(cdf_dir, exist_ok=True)
 
     cdf_file =  cdf_dir + site + '_' + instrument + '_' + syear + '_' + smonth + sday + '_1min.cdf'
@@ -35,7 +34,7 @@ def save_dataframes(Parms_DF, PSD_DF, Moments_DF, Out_Base_Dir, site, instrument
 
     # /d1/wallops-prf/Disdrometer/Parsivel/apu04/Text/2021/WFF_apu04_2021_0212.txt
 
-    txt_dir = Out_Base_Dir + 'Text/' + instrument + '/' + syear + '/'
+    txt_dir = Out_Base_Dir + 'Text/' + syear + '/'
     os.makedirs(txt_dir, exist_ok=True)
 
     parms_file = txt_dir + site + '_' + instrument + '_' + syear + '_' + smonth + sday + '_parms.csv'
@@ -58,7 +57,7 @@ def print_drop_matrix(data):
     x = data[:,:]
     for iv in range(32):
         line = x[iv,:].astype(int)
-        #print(line)
+        print(line)
     return
 #############################################################################################
 def get_julday_from_datetime(dt):
@@ -85,17 +84,34 @@ def unzip_files(zfiles, instrument, syear, smonth, sday):
     return files, tmp_dir
 
 #############################################################################################
-def concatenate_files(files):
-    tmp_dir = 'tmp/tmp_dir_' + str(os.getpid()) + '/'
+def concatenate_csv_files(files):
+    #tmp_dir = 'tmp/tmp_dir_' + str(os.getpid()) + '/'
+    tmp_dir = 'tmp/'
     os.makedirs(tmp_dir, exist_ok=True)
 
     fileb = os.path.basename(files[0])[:-4]
-    in_file = tmp_dir + fileb + '.dat'
+    in_file = tmp_dir + fileb + '.csv'
+
+    with open(in_file, 'w') as f:
+        #display(f)
+        for fname in files:
+            with open(fname, 'r', encoding = "UTF-8") as fs:
+                for line in fs:
+                    f.write(line)
+    return in_file        
+
+#############################################################################################
+def concatenate_files(files):
+    #tmp_dir = 'tmp/tmp_dir_' + str(os.getpid()) + '/'
+    tmp_dir = 'tmp/'
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    fileb = os.path.basename(files[0])[:-4]
+    in_file = tmp_dir + fileb + '.csv'
 
     with open(in_file, 'w') as f:
         for fname in files:
-            #print('Concat: ', fname)
-            with open(fname, encoding="ISO-8859-1") as fs:
+            with open(fname, 'r', encoding = "ISO-8859-1") as fs:
                 for line in fs:
                     f.write(line)
     return in_file
@@ -125,6 +141,53 @@ def get_dataset_from_parsivel(file, DVparms, Order='C'):
             data1d[:,ir] = x
             x2 = np.reshape(x, (32, 32), order=Order)
             data2d[:, :, ir] = x2
+        else:
+            print('Bad record length: ', ir, len(x))
+
+    diam = DVparms['Drop_bin'].values
+    velo = DVparms['Measured_Vt'].values
+    DT   = pd.to_datetime(dates)
+    time = DT
+
+    DS = xr.Dataset(
+        data_vars=dict(
+            drops=(["Diam", "Vel", "time"], data2d),
+        ),
+        attrs=dict(Description="Parsivel data."),
+    )
+    DS = DS.assign_coords(Diam=diam, Vel=velo, time=time)
+    return DS, data2d
+
+#############################################################################################
+def get_dataset_from_csv_parsivel(file, DVparms, Order='C'):
+
+    lines = []
+    with open(file, 'r') as f:
+        lines = f.readlines()
+    #os.remove(file)
+
+    dates = []
+    nr = len(lines)
+    nd = 32
+    nv = 32
+    data1d  = np.zeros([nd*nv, nr])
+    data2d  = np.zeros([nd, nv, nr])
+    datars  = np.zeros([nd, nv, nr])
+
+    for ir in range(nr):
+        x = lines[ir]
+        dates.append(x[0:14])
+        string_list = x[64:-2]
+        x = np.array(string_list.split(','))
+        
+
+        if(len(x) == 1024):
+            try:
+                data1d[:,ir] = x
+                x2 = np.reshape(x, (32, 32), order=Order)
+                data2d[:, :, ir] = x2
+            except ValueError:
+                print(f'\n ***ERROR on line {ir+1} with YYYYMMDDHHMMSS {dates[ir]} in file {file}...skipping')
         else:
             print('Bad record length: ', ir, len(x))
 
@@ -174,7 +237,6 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
 
     d_bin = DVparms['Drop_bin'].values
     v_bin = DVparms['Theoretical_Vt'].values
-    #v_bin = DVparms['Measured_Vt'].values
     delta = DVparms['Delta-D'].values
 
     DT = DS_1min.time.values
@@ -193,7 +255,6 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
             dt   = delta[idiam]
 
             for ivel in range(nv):
-                #print()
                 vel  = v_bin[ivel]
                 NumDrops = Drops[idiam, ivel]
 
@@ -211,7 +272,6 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
                 Conc[ir] += NumDrops * 1.e6/bot
                 LWC[ir]  += NumDrops * vol *1.e3/bot
                 Z[ir]    += NumDrops * 1.e6 * diam**6. / bot
-                #if Z[ir] >= 200.0: pdb.set_trace()
                 Rain[ir] += NumDrops * vol * Nsecs / cs
 
                 # Calculate eight first moments
@@ -220,7 +280,7 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
 
             # Calculate mass-weighted mean diameter and reflectivity
             Dm[ir] = Moments[ir,4]/Moments[ir,3]    # Ratio of 4th to 3rd moment
-            if( (Dm[ir] < 0) | (Dm[ir] > 20) | np.isnan(Dm[ir]) ): Dm[ir] = missing
+            if( (Dm[ir] < 0) | (Dm[ir] > 20) ): Dm[ir] = missing
 
 #           # Calculate sigma_m:  Sm^2 = sum((D - Dm)^2 N(D) D^3 dD) / sum(N(D) D^3 dD)
 #           sig1 = np.double(0) ; sig2 = sig1
@@ -239,13 +299,14 @@ def get_integral_parameters(site, inst, DS_1min, DF_Mask, DVparms):
 #           sig0 *= Dm[ir]
 #           Sigma_M[ir] = sig1/sig2
 #           if( (Sigma_M[ir] < 0) | (Sigma_M[ir] > 20) ):   Sigma_M[ir] = missing
+
     # Place Parms into a DataFrame
     Parms = {'DateTime': DT, 'Total Drops': Total_Drops, 'Concentration': Conc,
              'LWC': LWC, 'Z': Z, 'dBZ': 10*np.log10(Z), 'Rain': Rain, 'Dm': Dm,
              'Dmax': Dmax, 'Sigma_M': Sigma_M}
     cols = ['Total Drops', 'Concentration', 'LWC', 'Z', 'dBZ', 'Rain', 'Dm', 'Dmax', 'Sigma_M']
     Parms_DF = pd.DataFrame(data=Parms, index=DT, columns=cols)
-    #pdb.set_trace()
+
     # Place PSD dictionary into a Pandas DataFrame
     PSD = {'DateTime': DT, 'DropSize': d_bin, 'DSD': dsd}
     PSD_DF = pd.DataFrame(data=PSD['DSD'], index=Parms['DateTime'], columns=PSD['DropSize'])
